@@ -1,0 +1,4 @@
+Method: constrained
+Rows processed: 11464
+Average misfit: 0.1265
+Results file: /home/yohanuwa/code/multimin/output/inversion_results.csv
