@@ -1,0 +1,11 @@
+[project]
+name = "multimin"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "lasio>=0.32",
+    "matplotlib>=3.10.7",
+    "scipy>=1.16.3",
+]
