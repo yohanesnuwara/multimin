@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
-from scipy.optimize import lsq_linear
+from scipy.optimize import LinearConstraint, lsq_linear, minimize
 
 
 FloatArray = NDArray[np.float64]
@@ -362,7 +362,6 @@ class MultiMineralInversion:
         print("MULTIMINERAL INVERSION RESULTS")
         print(f"Method: {results['method']}")
         print("=" * 60)
-
         print("\n📊 VOLUME FRACTIONS:")
         print("-" * 60)
         for mineral, value in results["solution"].items():
@@ -394,3 +393,96 @@ class MultiMineralInversion:
             print("   or the input logs are inconsistent.")
 
         print("=" * 60)
+
+
+class MultiMineralInversion2:
+    """
+    Reproduction of the notebook-based inversion workflow.
+
+    The implementation mirrors the formulation in ``day 1 day 2.ipynb``:
+    a fixed 4×4 coefficient matrix (logs plus closure row), a quadratic
+    objective, and three linear constraints (bounds, closure, and a
+    fluid-volume equality constraint).
+    """
+
+    def __init__(self) -> None:
+        self.coefficient_matrix = np.array(
+            [
+                [55.5, 47.5, 43.5, 189.0],
+                [2.65, 2.70, 2.80, 1.05],
+                [-0.04, 0.00, 0.05, 1.00],
+                [1.00, 1.00, 1.00, 1.00],
+            ],
+            dtype=float,
+        )
+        self.mineral_names = ["Quartz", "Calcite", "Dolomite", "Fluid"]
+        _, self._num_components = self.coefficient_matrix.shape
+        identity = np.eye(self._num_components)
+        self._bounds_constraint = LinearConstraint(
+            identity,
+            lb=np.zeros(self._num_components),
+            ub=np.ones(self._num_components),
+        )
+        self._closure_constraint = LinearConstraint(
+            np.ones((1, self._num_components)),
+            lb=np.array([1.0], dtype=float),
+            ub=np.array([1.0], dtype=float),
+        )
+
+    @staticmethod
+    def _objective(x: np.ndarray, A: FloatArray, b: FloatArray) -> float:
+        residual = A @ x - b
+        return float(np.sum(residual**2))
+
+    def _fluid_constraint(self, fluid_fraction: float) -> LinearConstraint:
+        selector = np.zeros((1, self._num_components))
+        selector[0, -1] = 1.0
+        value = np.array([fluid_fraction], dtype=float)
+        return LinearConstraint(selector, lb=value, ub=value)
+
+    def invert(
+        self,
+        dt: float,
+        rhob: float,
+        nphi: float,
+        minimize_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Solve for mineral fractions using the notebook formulation.
+
+        Parameters:
+            dt: Compressional slowness log (us/ft).
+            rhob: Bulk density log (g/cm³).
+            nphi: Neutron porosity log (v/v).
+            minimize_options: Optional overrides for ``scipy.optimize.minimize``.
+
+        Returns:
+            Dictionary containing the optimized solution vector and optimizer
+            diagnostics, matching the spirit of the notebook output.
+        """
+        target = np.array([dt, rhob, nphi, 1.0], dtype=float)
+        constraints = [
+            self._bounds_constraint,
+            self._closure_constraint,
+            self._fluid_constraint(float(nphi)),
+        ]
+        result = minimize(
+            fun=self._objective,
+            x0=np.zeros(self._num_components, dtype=float),
+            args=(self.coefficient_matrix, target),
+            constraints=constraints,
+            method="trust-constr",
+            options=minimize_options,
+        )
+
+        solution = np.asarray(result.x, dtype=float)
+        residual = self.coefficient_matrix @ solution - target
+
+        return {
+            "solution_array": solution,
+            "solution": dict(zip(self.mineral_names, solution)),
+            "residual": residual,
+            "optimizer_success": bool(result.success),
+            "optimizer_message": result.message,
+            "objective_value": float(result.fun),
+        }
