@@ -4,6 +4,8 @@ This is a package for multimineral inversion from well logs. The goal is to esti
 
 This is a collaborative project between me and my student Mariam Alawadi, that revisits multimineral inversion using Python and replicate the inner working of modern softwares like Techlog. 
 
+<img width="1300" height="1000" alt="newplot (5)" src="https://github.com/user-attachments/assets/08053dcb-6e8c-49c7-baba-84b60f584eac" />
+
 There are 2 options of inversion: 
 
 1. **Constrained Least Squares**  
@@ -123,7 +125,7 @@ $$
 x_i \ge 0,\quad \sum x_i = 1
 $$
 
-So yes — **Nesterov is used** to speed convergence.
+**Nesterov is used** to speed convergence.
 
 ---
 
